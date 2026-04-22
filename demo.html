@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <title>すらたま型プロンプト（雷型探索モデル）デモ</title>
+    <style>
+        body {
+            margin: 0;
+            background-color: #0d1117;
+            color: #c9d1d9;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        h1 { margin-top: 20px; margin-bottom: 10px; font-size: 24px; color: #58a6ff; }
+        #controls {
+            display: flex;
+            gap: 15px;
+            flex-wrap: wrap;
+            justify-content: center;
+            margin-bottom: 20px;
+        }
+        button {
+            padding: 12px 24px;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+            background: #21262d;
+            color: #c9d1d9;
+            border: 1px solid #30363d;
+            border-radius: 6px;
+            transition: all 0.2s ease;
+        }
+        button:hover { background: #30363d; border-color: #8b949e; }
+        button.active { background: #1f6feb; color: white; border-color: #1f6feb; }
+        
+        #description {
+            width: 800px;
+            height: 50px;
+            text-align: center;
+            font-size: 18px;
+            margin-bottom: 10px;
+        }
+
+        #canvas-container {
+            position: relative;
+            width: 800px;
+            height: 500px;
+            background: #010409;
+            border: 2px solid #30363d;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 0 20px rgba(0,0,0,0.5);
+        }
+
+        /* 舞台装置のCSS */
+        .cloud {
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 80px;
+            background: linear-gradient(to bottom, #2d333b, transparent);
+            z-index: 10;
+        }
+        .ground {
+            position: absolute;
+            bottom: 0; left: 0; width: 100%; height: 40px;
+            background: #161b22;
+            border-top: 2px solid #30363d;
+            z-index: 10;
+        }
+        .lightning-rod {
+            position: absolute;
+            bottom: 40px; left: 50%;
+            transform: translateX(-50%);
+            width: 6px; height: 50px;
+            background: #8b949e;
+            border-radius: 3px 3px 0 0;
+            box-shadow: 0 0 10px rgba(139, 148, 158, 0.5);
+            z-index: 11;
+        }
+        .rod-label {
+            position: absolute;
+            bottom: 15px; left: 50%;
+            transform: translateX(-50%);
+            font-size: 14px; color: #8b949e;
+            z-index: 12;
+        }
+    </style>
+</head>
+<body>
+
+    <h1>🌩️ 雷型探索モデル (Prompting Styles)</h1>
+    
+    <div id="controls">
+        <button onclick="playDemo('high-fail', this)">1. 明確派 (失敗)</button>
+        <button onclick="playDemo('high-success', this)">明確派 (成功)</button>
+        <button onclick="playDemo('low-fail', this)">2. 曖昧派 (失敗)</button>
+        <button onclick="playDemo('low-success', this)">曖昧派 (成功)</button>
+        <button onclick="playDemo('co', this)">3. 一緒に走る派 (確実)</button>
+    </div>
+
+    <div id="description">ボタンを押して推論（アニメーション）を開始してください。</div>
+
+    <div id="canvas-container">
+        <div class="cloud"></div>
+        <canvas id="lightningCanvas" width="800" height="500"></canvas>
+        <div class="ground"></div>
+        <div class="lightning-rod"></div>
+        <div class="rod-label">真の目的</div>
+        <!-- フラッシュエフェクト用の要素 -->
+        <div id="flash" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: white; opacity: 0; pointer-events: none; transition: opacity 0.1s ease-out; z-index: 20;"></div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('lightningCanvas');
+        const ctx = canvas.getContext('2d');
+        const desc = document.getElementById('description');
+
+        // 雷を描画する関数（少しずつ伸びるアニメーション）
+        function drawLightning(startX, startY, endX, endY, color, roughness, callback) {
+            let currentX = startX;
+            let currentY = startY;
+            let steps = 25;
+            let yStep = (endY - startY) / steps;
+            
+            ctx.beginPath();
+            ctx.moveTo(startX, startY);
+            ctx.strokeStyle = color;
+            ctx.lineWidth = 3;
+            ctx.shadowBlur = 15;
+            ctx.shadowColor = color;
+
+            let i = 0;
+            function animate() {
+                if (i >= steps) {
+                    if (callback) callback();
+                    return;
+                }
+                currentY += yStep;
+                // roughnessでジグザグ感を出す
+                let shake = (Math.random() - 0.5) * roughness;
+                currentX += shake;
+                // 終点に徐々に近づける
+                currentX += (endX - currentX) * 0.15; 
+                
+                ctx.lineTo(currentX, currentY);
+                ctx.stroke();
+                i++;
+                requestAnimationFrame(animate);
+            }
+            animate();
+        }
+
+        function clearCanvas() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            ctx.shadowBlur = 0;
+        }
+
+        // 画面をピカッと白く光らせる関数
+        function doFlash() {
+            const flash = document.getElementById('flash');
+            flash.style.opacity = '0.8';
+            setTimeout(() => { flash.style.opacity = '0'; }, 100);
+        }
+
+        function playDemo(type, btn) {
+            document.querySelectorAll('button').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            clearCanvas();
+
+            if (type === 'high-fail') {
+                desc.innerHTML = "<b>【明確派：失敗】</b> 真上から下ろしたつもりのパイプが少しズレて浮いているため、目的から逸れて強制着地（悪性ハルシネーション）。";
+                // ズレて浮いているパイプを描画
+                ctx.beginPath();
+                ctx.moveTo(400, 80);  // 入り口は目的の真上（本人は完璧なつもり）
+                ctx.lineTo(450, 400); // 出口は少しズレていて、地面から浮いている
+                ctx.strokeStyle = 'rgba(100, 100, 100, 0.5)';
+                ctx.lineWidth = 40;
+                ctx.stroke();
+                // 雷のアニメーション（遊びがない、パイプに沿ってズレた場所へ）
+                drawLightning(400, 80, 460, 460, '#ff7b72', 5);
+            } 
+            else if (type === 'high-success') {
+                desc.innerHTML = "<b>【明確派：成功】</b> パイプの出口が「偶然」避雷針にドンピシャで合っていた場合。一切の迷いなく一直線に直撃！（ただし調整は至難の業）";
+                ctx.beginPath();
+                ctx.moveTo(400, 80);
+                ctx.lineTo(400, 460); // 避雷針まで完璧に届いている
+                ctx.strokeStyle = 'rgba(100, 100, 100, 0.5)';
+                ctx.lineWidth = 40;
+                ctx.stroke();
+                drawLightning(400, 80, 400, 460, '#ffffff', 2, () => { doFlash(); });
+            }
+            else if (type === 'low-fail') {
+                desc.innerHTML = "<b>【曖昧派：失敗】</b> 探索空間が広がりすぎ、経路がブラックボックス化。手前の凡庸な木（ありふれた回答）に落ちる。";
+                // 手前の高い木を描画
+                ctx.fillStyle = '#3fb950';
+                ctx.fillRect(200, 350, 30, 110);
+                // 枝分かれ（フェイクの雷）
+                drawLightning(400, 80, 600, 460, 'rgba(121, 192, 255, 0.3)', 100);
+                drawLightning(400, 80, 100, 460, 'rgba(121, 192, 255, 0.3)', 120);
+                // 本命の雷（木に落ちる）
+                drawLightning(400, 80, 215, 350, '#79c0ff', 60);
+            } 
+            else if (type === 'low-success') {
+                desc.innerHTML = "<b>【曖昧派：成功】</b> 無数の可能性の中に「たまたま」正解への道があり、運良くそこに落ちた場合。過程はブラックボックス。";
+                ctx.fillStyle = '#3fb950';
+                ctx.fillRect(200, 350, 30, 110);
+                drawLightning(400, 80, 600, 460, 'rgba(121, 192, 255, 0.3)', 100);
+                drawLightning(400, 80, 100, 460, 'rgba(121, 192, 255, 0.3)', 120);
+                drawLightning(400, 80, 215, 350, 'rgba(121, 192, 255, 0.3)', 60); // 木にはフェイクが落ちる
+                // 本命は奇跡的に避雷針へ
+                drawLightning(400, 80, 400, 460, '#ffffff', 80, () => { doFlash(); });
+            }
+            else if (type === 'co') {
+                desc.innerHTML = "<b>【一緒に走る派】</b> 途中で誘雷針（追加プロンプト）を置き、軌道修正しながら真の目的に直撃！";
+                // ステップ1
+                drawLightning(400, 80, 300, 200, '#a5d6ff', 30, () => {
+                    ctx.fillStyle = '#f0e68c'; ctx.beginPath(); ctx.arc(300, 200, 6, 0, Math.PI*2); ctx.fill(); // 誘雷針1
+                    // ステップ2
+                    setTimeout(() => drawLightning(300, 200, 450, 350, '#a5d6ff', 30, () => {
+                        ctx.fillStyle = '#f0e68c'; ctx.beginPath(); ctx.arc(450, 350, 6, 0, Math.PI*2); ctx.fill(); // 誘雷針2
+                        // ステップ3（避雷針へ直撃）
+                        setTimeout(() => drawLightning(450, 350, 400, 460, '#ffffff', 20, () => { doFlash(); }), 500);
+                    }), 500);
+                });
+            }
+        }
+    </script>
+</body>
+</html>
