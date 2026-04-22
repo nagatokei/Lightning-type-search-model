@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <title>LLM情報空間アニメーション</title>
+    <style>
+        body {
+            margin: 0;
+            background-color: #050510; /* 深い宇宙のような色 */
+            color: #c9d1d9;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        h1 { margin-top: 20px; margin-bottom: 10px; font-size: 24px; color: #a5d6ff; }
+        
+        #canvas-container {
+            position: relative;
+            width: 800px;
+            height: 500px;
+            border: 1px solid #30363d;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 0 30px rgba(100, 150, 255, 0.2);
+            background: radial-gradient(circle at center, #1a1a3a 0%, #050510 100%);
+        }
+
+        #controls {
+            margin-top: 20px;
+        }
+
+        button {
+            padding: 12px 24px;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+            background: #1f6feb;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            transition: all 0.2s ease;
+            box-shadow: 0 0 10px rgba(31, 111, 235, 0.5);
+        }
+        button:hover { background: #388bfd; }
+        button:disabled { background: #30363d; color: #8b949e; cursor: not-allowed; box-shadow: none; }
+    </style>
+</head>
+<body>
+
+    <h1>✨ 潜在空間での推論プロセス</h1>
+    
+    <div id="canvas-container">
+        <canvas id="spaceCanvas" width="800" height="500"></canvas>
+    </div>
+
+    <div id="controls">
+        <button id="actionBtn" onclick="nextPhase()">プロンプトを投げる</button>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('spaceCanvas');
+        const ctx = canvas.getContext('2d');
+        const btn = document.getElementById('actionBtn');
+
+        // アニメーションの状態管理
+        // 0: 待機, 1: プロンプト上昇, 2: 探索(光が群がる), 3: 結合(強い光が吸収), 4: 回答下降
+        let phase = 0; 
+        let frame = 0;
+
+        // プロンプト（文字）のオブジェクト
+        let textObj = {
+            x: 400, y: 450,
+            text: "「明日の天気を教えて」",
+            color: "rgba(255, 255, 255, 0.8)",
+            glow: 0
+        };
+
+        // 背景のもやもや（潜在空間の知識）
+        let particles = [];
+        for(let i=0; i<50; i++) {
+            particles.push({
+                x: Math.random() * 800,
+                y: Math.random() * 300,
+                radius: Math.random() * 40 + 20,
+                vx: (Math.random() - 0.5) * 0.5,
+                vy: (Math.random() - 0.5) * 0.5,
+                color: `hsla(${Math.random()*60 + 200}, 80%, 60%, 0.05)` // 青〜紫系の柔らかい光
+            });
+        }
+
+        // 引き寄せられる候補の光
+        let candidates = [];
+
+        function draw() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            ctx.globalCompositeOperation = 'lighter'; // 光を重ねて明るくする
+
+            // 1. 背景のもやもやを描画
+            particles.forEach(p => {
+                p.x += p.vx; p.y += p.vy;
+                if(p.x < 0 || p.x > 800) p.vx *= -1;
+                if(p.y < 0 || p.y > 350) p.vy *= -1;
+
+                let grad = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, p.radius);
+                grad.addColorStop(0, p.color);
+                grad.addColorStop(1, "transparent");
+                ctx.fillStyle = grad;
+                ctx.beginPath(); ctx.arc(p.x, p.y, p.radius, 0, Math.PI*2); ctx.fill();
+            });
+
+            // 2. 状態ごとのアニメーション処理
+            if (phase === 1) {
+                // プロンプトが潜在空間（上）へ向かっていく
+                textObj.y += (200 - textObj.y) * 0.05;
+                if (Math.abs(textObj.y - 200) < 1) {
+                    phase = 2; // 探索フェーズへ
+                    frame = 0;
+                    // 候補の光を生成
+                    for(let i=0; i<8; i++) {
+                        candidates.push({
+                            x: 400 + (Math.random() - 0.5) * 300,
+                            y: 200 + (Math.random() - 0.5) * 200,
+                            vx: 0, vy: 0,
+                            radius: Math.random() * 10 + 5,
+                            isMain: i === 0 // 1つだけ本命（最も強い光）にする
+                        });
+                    }
+                }
+            } 
+            else if (phase === 2) {
+                // 候補の光がプロンプトの周りをふわふわ飛ぶ
+                candidates.forEach(c => {
+                    // プロンプトへ緩やかに引き寄せられる
+                    c.vx += (textObj.x - c.x) * 0.0005;
+                    c.vy += (textObj.y - c.y) * 0.0005;
+                    c.x += c.vx; c.y += c.vy;
+
+                    // 光の描画
+                    let color = c.isMain ? "rgba(255, 255, 150, 0.8)" : "rgba(150, 200, 255, 0.5)";
+                    let r = c.isMain ? c.radius + Math.sin(frame*0.1)*5 : c.radius; // 本命は鼓動する
+                    
+                    let grad = ctx.createRadialGradient(c.x, c.y, 0, c.x, c.y, r*2);
+                    grad.addColorStop(0, color);
+                    grad.addColorStop(1, "transparent");
+                    ctx.fillStyle = grad;
+                    ctx.beginPath(); ctx.arc(c.x, c.y, r*2, 0, Math.PI*2); ctx.fill();
+                });
+                
+                if (frame > 120) phase = 3; // 2秒ほど漂ったら結合フェーズへ
+            }
+            else if (phase === 3) {
+                // 本命の光がプロンプトに急激に吸い込まれる
+                let mainC = candidates.find(c => c.isMain);
+                if (mainC) {
+                    mainC.x += (textObj.x - mainC.x) * 0.1;
+                    mainC.y += (textObj.y - mainC.y) * 0.1;
+                    
+                    let grad = ctx.createRadialGradient(mainC.x, mainC.y, 0, mainC.x, mainC.y, mainC.radius*3);
+                    grad.addColorStop(0, "rgba(255, 255, 200, 1)");
+                    grad.addColorStop(1, "transparent");
+                    ctx.fillStyle = grad;
+                    ctx.beginPath(); ctx.arc(mainC.x, mainC.y, mainC.radius*3, 0, Math.PI*2); ctx.fill();
+
+                    // 吸収されたら文字が光り、文字列が変化する
+                    if (Math.abs(mainC.x - textObj.x) < 5) {
+                        textObj.glow = 30;
+                        textObj.text = "「明日は晴れです」"; // 新しい文字列
+                        textObj.color = "rgba(255, 255, 200, 1)";
+                        candidates = []; // 他の候補は消える
+                        phase = 4;
+                    }
+                }
+                // 他の候補は散っていく
+                candidates.filter(c => !c.isMain).forEach(c => {
+                    c.y -= 2; c.radius *= 0.9;
+                    ctx.fillStyle = "rgba(150, 200, 255, 0.5)";
+                    ctx.beginPath(); ctx.arc(c.x, c.y, c.radius, 0, Math.PI*2); ctx.fill();
+                });
+            }
+            else if (phase === 4) {
+                // 変化した文字が人間の元（下）へ戻る
+                textObj.y += (450 - textObj.y) * 0.05;
+                if (textObj.glow > 0) textObj.glow -= 0.5; // 光が徐々に収まる
+                
+                if (Math.abs(textObj.y - 450) < 1) {
+                    btn.disabled = false;
+                    btn.innerText = "もう一度投げる";
+                }
+            }
+
+            // 3. テキストの描画
+            ctx.globalCompositeOperation = 'source-over';
+            ctx.font = "bold 24px 'Segoe UI'";
+            ctx.textAlign = "center";
+            ctx.textBaseline = "middle";
+            
+            if (textObj.glow > 0) {
+                ctx.shadowBlur = textObj.glow;
+                ctx.shadowColor = "white";
+            } else {
+                ctx.shadowBlur = 0;
+            }
+            
+            ctx.fillStyle = textObj.color;
+            ctx.fillText(textObj.text, textObj.x, textObj.y);
+
+            frame++;
+            requestAnimationFrame(draw);
+        }
+
+        function nextPhase() {
+            if (phase === 0 || phase === 4) {
+                phase = 1;
+                textObj.y = 450;
+                textObj.text = "「明日の天気を教えて」";
+                textObj.color = "rgba(255, 255, 255, 0.8)";
+                textObj.glow = 0;
+                btn.disabled = true;
+                btn.innerText = "推論中...";
+            }
+        }
+
+        // アニメーション開始
+        draw();
+    </script>
+</body>
+</html>
