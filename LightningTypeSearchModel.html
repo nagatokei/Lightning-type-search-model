@@ -107,10 +107,8 @@
     <h1>🌩️ 雷型探索モデル (Prompting Styles)</h1>
     
     <div id="controls">
-        <button onclick="playDemo('high-fail', this)">1. 明確派 (失敗)</button>
-        <button onclick="playDemo('high-success', this)">明確派 (成功)</button>
-        <button onclick="playDemo('low-fail', this)">2. 曖昧派 (失敗)</button>
-        <button onclick="playDemo('low-success', this)">曖昧派 (成功)</button>
+        <button onclick="playDemo('high', this)">1. 明確派 (過拘束)</button>
+        <button onclick="playDemo('low', this)">2. 曖昧派 (ガチャ)</button>
         <button onclick="playDemo('co', this)">3. 一緒に走る派 (確実)</button>
     </div>
 
@@ -186,55 +184,42 @@
             btn.classList.add('active');
             clearCanvas();
 
-            if (type === 'high-fail') {
-                desc.innerHTML = "<b>【明確派：失敗】</b> 真上から下ろしたつもりのパイプが少しズレて浮いているため、目的から逸れて強制着地（悪性ハルシネーション）。";
-                details.innerHTML = "<b>【解説：過拘束の罠】</b><br>分厚いマニュアルや厳格なフォーマットでがんじがらめに縛るスタイルです。本人は完璧に指示したつもりでも、前提条件が少しズレているだけで、AIは軌道修正ができずに「もっともらしい嘘（悪性ハルシネーション）」をついたまま強制着地してしまいます。";
-                // ズレて浮いているパイプを描画
-                ctx.beginPath();
-                ctx.moveTo(400, 80);  // 入り口は目的の真上（本人は完璧なつもり）
-                ctx.lineTo(450, 400); // 出口は少しズレていて、地面から浮いている
-                ctx.strokeStyle = 'rgba(100, 100, 100, 0.5)';
-                ctx.lineWidth = 40;
-                ctx.stroke();
-                // 雷のアニメーション（遊びがない、パイプに沿ってズレた場所へ）
-                drawLightning(400, 80, 460, 460, '#ff7b72', 5);
+            if (type === 'high') {
+                let isLucky = Math.random() < 0.2; // 20%の確率で奇跡の成功
+                if (isLucky) {
+                    desc.innerHTML = "<b>【明確派：奇跡の成功】</b> パイプの出口が「偶然」避雷針にドンピシャで合っていた場合。";
+                    details.innerHTML = "<b>【解説：偶然のクリティカル】</b><br>指定した厳格なルールが、たまたま今回のタスク（避雷針）に完全に適合していた場合の奇跡的な成功例です。一切の迷いなく一直線に出力されますが、この「完璧なパイプ」を毎回設計するのは至難の業です。たまに大成功してしまうため、この手法から抜け出せなくなる人が多いです。";
+                    ctx.beginPath(); ctx.moveTo(400, 80); ctx.lineTo(400, 460); ctx.strokeStyle = 'rgba(100, 100, 100, 0.5)'; ctx.lineWidth = 40; ctx.stroke();
+                    drawLightning(400, 80, 400, 460, '#ffffff', 2, () => { doFlash(); });
+                } else {
+                    desc.innerHTML = "<b>【明確派：失敗】</b> 真上から下ろしたつもりのパイプが少しズレて浮いているため、目的から逸れて強制着地。";
+                    details.innerHTML = "<b>【解説：過拘束の罠】</b><br>分厚いマニュアルや厳格なフォーマットでがんじがらめに縛るスタイルです。本人は完璧に指示したつもりでも、前提条件が少しズレているだけで、AIは軌道修正ができずに「もっともらしい嘘（悪性ハルシネーション）」をついたまま強制着地してしまいます。";
+                    ctx.beginPath(); ctx.moveTo(400, 80); ctx.lineTo(450, 400); ctx.strokeStyle = 'rgba(100, 100, 100, 0.5)'; ctx.lineWidth = 40; ctx.stroke();
+                    drawLightning(400, 80, 460, 460, '#ff7b72', 5);
+                }
             } 
-            else if (type === 'high-success') {
-                desc.innerHTML = "<b>【明確派：成功】</b> パイプの出口が「偶然」避雷針にドンピシャで合っていた場合。一切の迷いなく一直線に直撃！（ただし調整は至難の業）";
-                details.innerHTML = "<b>【解説：偶然のクリティカル】</b><br>指定した厳格なルールが、たまたま今回のタスク（避雷針）に完全に適合していた場合の奇跡的な成功例です。一切の迷いなく出力されますが、この「完璧なパイプ」を毎回設計するのは至難の業です。たまに大成功してしまうため、この手法から抜け出せなくなる人が多いです。";
-                ctx.beginPath();
-                ctx.moveTo(400, 80);
-                ctx.lineTo(400, 460); // 避雷針まで完璧に届いている
-                ctx.strokeStyle = 'rgba(100, 100, 100, 0.5)';
-                ctx.lineWidth = 40;
-                ctx.stroke();
-                drawLightning(400, 80, 400, 460, '#ffffff', 2, () => { doFlash(); });
-            }
-            else if (type === 'low-fail') {
-                desc.innerHTML = "<b>【曖昧派：失敗】</b> 探索空間が広がりすぎ、経路がブラックボックス化。手前の凡庸な木（ありふれた回答）に落ちる。";
-                details.innerHTML = "<b>【解説：丸投げの限界】</b><br>「とりあえず良い感じにお願い」と丸投げするスタイルです。AIの思考の探索空間が広がりすぎ、経路がブラックボックス化します。大抵の場合は、避雷針（本当に欲しい回答）に辿り着く前に、手前にある「ありふれた凡庸な回答（手前の高い木）」に飛びついて終わってしまいます。";
-                // 手前の高い木を描画
-                ctx.fillStyle = '#3fb950';
-                ctx.fillRect(200, 350, 30, 110);
-                // 枝分かれ（フェイクの雷）
-                drawLightning(400, 80, 600, 460, 'rgba(121, 192, 255, 0.3)', 100);
-                drawLightning(400, 80, 100, 460, 'rgba(121, 192, 255, 0.3)', 120);
-                // 本命の雷（木に落ちる）
-                drawLightning(400, 80, 215, 350, '#79c0ff', 60);
-            } 
-            else if (type === 'low-success') {
-                desc.innerHTML = "<b>【曖昧派：成功】</b> 無数の可能性の中に「たまたま」正解への道があり、運良くそこに落ちた場合。過程はブラックボックス。";
-                details.innerHTML = "<b>【解説：ガチャによる成功】</b><br>丸投げした結果、無数に広がった可能性の中にたまたま正解への道があり、運良く「本当に欲しい回答」を引き当てた成功例です（いわゆるプロンプトガチャに勝った状態）。しかし、なぜその答えが出たのかの過程がブラックボックスなので、再現性がありません。";
-                ctx.fillStyle = '#3fb950';
-                ctx.fillRect(200, 350, 30, 110);
-                drawLightning(400, 80, 600, 460, 'rgba(121, 192, 255, 0.3)', 100);
-                drawLightning(400, 80, 100, 460, 'rgba(121, 192, 255, 0.3)', 120);
-                drawLightning(400, 80, 215, 350, 'rgba(121, 192, 255, 0.3)', 60); // 木にはフェイクが落ちる
-                // 本命は奇跡的に避雷針へ
-                drawLightning(400, 80, 400, 460, '#ffffff', 80, () => { doFlash(); });
+            else if (type === 'low') {
+                desc.innerHTML = "<b>【曖昧派：ガチャ】</b> 探索空間が広がりすぎ、結果は運任せ。何度かボタンを押してみてください。";
+                details.innerHTML = "<b>【解説：丸投げとプロンプトガチャ】</b><br>「とりあえず良い感じにお願い」と丸投げするスタイルです。無数の可能性（細い雷光）がランダムな場所に落ちます。たまに運良く真の目的（避雷針）に当たることもありますが、なぜそこに落ちたのかはブラックボックスで再現性がありません。";
+                
+                let hitSuccess = false;
+                let numLightnings = 10; // 10本の細い雷光を放つ
+
+                for(let i = 0; i < numLightnings; i++){
+                    let randomX = Math.random() * 800;
+                    // 避雷針の範囲（385〜415付近）に落ちた雷があれば成功判定
+                    if(randomX > 385 && randomX < 415 && !hitSuccess) {
+                        hitSuccess = true;
+                        // 運良く当たった雷だけ白く光らせてフラッシュ
+                        drawLightning(400, 80, randomX, 460, '#ffffff', 100, () => { doFlash(); });
+                    } else {
+                        // 外れた雷は薄い水色で何もない地面へ
+                        drawLightning(400, 80, randomX, 460, 'rgba(121, 192, 255, 0.3)', 120);
+                    }
+                }
             }
             else if (type === 'co') {
-                desc.innerHTML = "<b>【一緒に走る派】</b> 途中で誘雷針（追加プロンプト）を置き、軌道修正しながら真の目的に直撃！";
+                desc.innerHTML = "<b>【一緒に走る派：確実】</b> 途中で誘雷針（追加プロンプト）を置き、軌道修正しながら真の目的に直撃！";
                 details.innerHTML = "<b>【解説：マネジメントと対話】</b><br>AIへの指示は、部下に仕事を頼むのと同じです。最初から完璧なルールで縛るでもなく、丸投げにするでもなく、「まずは大まかな方向で走らせる」のがコツです。<br>途中で雷が止まったタイミングで<b>『そっちじゃないよ、こっちだよ』と小さな目印（追加のプロンプト・壁打ち）をポンと置いてあげる</b>ことで、無駄なく確実かつ最もクオリティの高い結果を導き出すことができます。";
                 // ステップ1
                 drawLightning(400, 80, 300, 200, '#a5d6ff', 30, () => {
